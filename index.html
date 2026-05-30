@@ -236,7 +236,7 @@
   let screeningResults = [];
   let GEMINI_API_KEY = '';
 
-  const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent';
+  
 
   // ── INIT ──
   document.addEventListener('DOMContentLoaded', () => {
@@ -254,25 +254,30 @@
   // ── API KEY ──
   async function saveApiKey(){
     const key = document.getElementById('gemini-key').value.trim();
-    if(!key){ showToast(''); return; }
-    showApiStatus('Testing key...','');
+    if(!key){ showToast('⚠️ Please paste your Gemini API key'); return; }
+    showApiStatus('🔄 Testing key, please wait...','');
     try {
-      const res = await fetch(`${GEMINI_URL}?key=${key}`,{
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${key}`;
+      const res = await fetch(url,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts:[{text:'Reply with just the word OK'}]}]})
+        body:JSON.stringify({contents:[{role:'user', parts:[{text:'Say OK'}]}]})
       });
       const data = await res.json();
-      if(data.candidates){
-        GEMINI_API_KEY = '';
-        localStorage.setItem('gemini_key', '');
+      console.log('Key test response:', JSON.stringify(data));
+      if(data.candidates && data.candidates.length > 0){
+        GEMINI_API_KEY = key;
+        localStorage.setItem('gemini_key', key);
         showApiStatus('✅ API key is valid and working! You can now screen resumes.','ok');
         showToast('✅ Gemini API key saved!');
       } else {
-        showApiStatus('❌ Invalid key. Check it and try again. Error: '+(data.error?.message||'Unknown'),'fail');
+        const errMsg = data.error?.message || JSON.stringify(data);
+        showApiStatus('❌ Error: ' + errMsg,'fail');
+        console.error('Full error:', data);
       }
     } catch(e){
-      showApiStatus('❌ Network error. Check your internet connection.','fail');
+      showApiStatus('❌ Network error: '+e.message,'fail');
+      console.error(e);
     }
   }
 
@@ -286,17 +291,21 @@
   // ── GEMINI CALL ──
   async function callGemini(prompt){
     if(!GEMINI_API_KEY){ showToast('⚠️ Please enter your Gemini API key first'); throw new Error('No API key'); }
-    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`,{
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
+    const res = await fetch(url,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        contents:[{parts:[{text:prompt}]}],
-        generationConfig:{ temperature:0.3, maxOutputTokens:2000 }
+        contents:[{role:'user', parts:[{text:prompt}]}],
+        generationConfig:{ temperature:0.3, maxOutputTokens:2048, responseMimeType:'text/plain' }
       })
     });
     const data = await res.json();
-    if(data.error) throw new Error(data.error.message);
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('Gemini raw response:', JSON.stringify(data));
+    if(data.error) throw new Error('Gemini Error: '+data.error.message+' | Code: '+data.error.code);
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if(!text) throw new Error('Empty response from Gemini. Check Console F12.');
+    return text;
   }
 
   // ── SKILL TAG INPUT ──

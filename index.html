@@ -296,7 +296,7 @@
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        contents:[{role:'user', parts:[{text:prompt}]}],
+        contents:[{role:'user', parts:[{text:prompt.replace(/[\u0000-\u001F\u007F]/g,' ')}]}],
         generationConfig:{ temperature:0.3, maxOutputTokens:2048 }
       })
     });
@@ -432,11 +432,12 @@ ${jd}`);
     const btnText=document.getElementById('screen-btn-text');
     btn.disabled=true; spinner.style.display='block'; btnText.textContent='Analyzing candidates...';
 
+   const clean = (str) => str.replace(/[\r\n]+/g,' ').replace(/["`\\]/g,' ').replace(/\s+/g,' ').trim();
     const prompt=`You are an expert HR AI screening resumes for this position.
 
-Job Title: ${document.getElementById('job-title').value}
-Experience Required: ${document.getElementById('exp-required').value}
-Job Description: ${document.getElementById('job-desc').value}
+Job Title: ${clean(document.getElementById('job-title').value)}
+Experience Required: ${clean(document.getElementById('exp-required').value)}
+Job Description: ${clean(document.getElementById('job-desc').value)}
 Required Skills: ${requiredSkills.join(', ')}
 Optional/Bonus Skills: ${optionalSkills.join(', ')}
 
@@ -459,7 +460,7 @@ Evaluate these ${entries.length} candidates. Return ONLY a JSON array with no ma
 Recommendation must be one of: Strong Hire, Hire, Maybe, No Hire
 
 Candidates to evaluate:
-${entries.map((e,i)=>`Candidate ${i+1}: ${e.name}, ${e.exp} experience\n${e.text}`).join('\n\n---\n\n')}`;
+${entries.map((e,i)=>`Candidate ${i+1}: ${clean(e.name)}, ${clean(e.exp)} experience. ${clean(e.text)}`).join(' --- ')}`;
 
     try {
       const text = await callGemini(prompt);
